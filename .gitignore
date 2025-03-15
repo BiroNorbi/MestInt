@@ -175,3 +175,8 @@ cython_debug/
 
 .idea
 .vscode
+*.zip
+*.txt
+*.png 
+*.jpg
+*.jpeg

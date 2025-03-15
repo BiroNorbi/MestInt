@@ -10,4 +10,4 @@ class Node:
         self.h = float(0)
 
     def __repr__(self):
-        return f"Point({self.x}, {self.y}, {self.z}, {self.barrier})"
+        return f"Node({self.x}, {self.y}, {self.z}, {self.barrier}, {self.f}, {self.g}, {self.h})"
