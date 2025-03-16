@@ -69,8 +69,8 @@ def heatmap_2d(adjacency, path, name):
     )
 
     if path:
-        path_x = [p.y + offset_y for p in path]
-        path_y = [p.x + offset_x for p in path]
+        path_x = [p.x + offset_y for p in path]
+        path_y = [p.y + offset_x for p in path]
         plt.plot(path_x, path_y, 'b-', linewidth=2, label="Path")
 
         plt.scatter(path_x[0], path_y[0], c='r', marker='o', s=80, label="Start")

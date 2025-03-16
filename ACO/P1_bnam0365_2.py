@@ -2,60 +2,63 @@ import random
 
 import numpy as np
 
-from P1_bnam0365_4 import visualize
+from ACO.P1_bnam0365_4 import visualize
 from P1_bnam0365_1 import *
 from P1_bnam0365_3 import *
 
-def read_surface(filename, width, height):
-    f = open(filename, "r")
-    matrix = np.full((width, height), Node(0, 0, 0, 0), dtype=object)
 
+def read_surface(filename):
+    f = open(filename, "r")
+    adjacency = {}
+    bonuses = 0
+
+    neighbors_direction = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     for line in f:
         lines = line.strip().split(" ")
-        x = int(lines[0])
-        y = int(lines[1])
+        x = int(float(lines[0]))
+        y = int(float(lines[1]))
         z = float(lines[2])
         bonus = int(lines[3])
-        matrix[x][y] = Node(x, y, z, bonus)
+
+        if bonus == 1:
+            bonuses += 5
+        elif bonus == -1:
+            bonuses -= 10
+
+        point = Node(x, y, z, bonus)
+        neighbors = []
+
+        for x_t, y_t in neighbors_direction:
+            try:
+                neighbor = adjacency[(x + x_t, y + y_t)]
+                neighbors.append(neighbor[0])
+                neighbor[1].append(point)
+            except KeyError:
+                continue
+        adjacency[(x, y)] = (point, neighbors)
 
     f.close()
 
-    return matrix
+    return adjacency, bonuses
 
-def read_end_points(filename, matrix):
+def read_end_points(filename, adjacency):
     f = open(filename, "r")
 
     line = f.readline().strip().split(" ")
-    x = int(line[0])
-    y = int(line[1])
-    start_point = matrix[x][y]
+    x = int(float(line[0]))
+    y = int(float(line[1]))
+    start_point = adjacency[(x,y)][0]
 
     line = f.readline().strip().split(" ")
-    x = int(line[0])
-    y = int(line[1])
-    end_point = matrix[x][y]
+    x = int(float(line[0]))
+    y = int(float(line[1]))
+    end_point = adjacency[(x,y)][0]
 
     f.close()
 
     return start_point, end_point
 
-def get_neighbors(matrix, node):
-    neighbors = []
-
-    for i in range(node.x - 1, node.x + 2):
-        for j in range(node.y - 1, node.y + 2):
-            if i >= 0 and j >= 0:
-
-                try:
-                    neighbor = matrix[i][j]
-                    if neighbor != node:
-                        neighbors.append(neighbor)
-                except IndexError:
-                    continue
-
-    return neighbors
-
-def aco_algorithm(matrix, start_point, end_point):
+def aco_algorithm(adjacency, start_point, end_point, bonuses):
     best_path = None
     minimal_energy = float("inf")
     parameters = AOCParameters()
@@ -65,7 +68,7 @@ def aco_algorithm(matrix, start_point, end_point):
         energies = []
 
         for _ in range(parameters.get_number_of_ants()):
-            path, energy = construct_ant_path(matrix, start_point, end_point)
+            path, energy = construct_ant_path(adjacency, start_point, end_point, bonuses)
 
             if path:
                 paths.append(path)
@@ -74,32 +77,34 @@ def aco_algorithm(matrix, start_point, end_point):
                 if energy < minimal_energy:
                     minimal_energy = energy
                     best_path = path
-        update_pheromones(matrix, paths, energies)
+        update_pheromones(adjacency, paths, energies, best_path)
         #print(f"{i + 1}. iteracio, eddigi legkisebb energia: {minimal_energy}")
 
     return best_path, minimal_energy
 
-def construct_ant_path(matrix, start_point, end_point):
+def construct_ant_path(adjacency, start_point, end_point, bonuses):
     path = [start_point]
     visited = set(path)
 
+    energy = abs(bonuses) % 10
     iteration = 0
 
-    while path[-1] != end_point and iteration <= 100:
+    while path[-1] != end_point and energy > 0 and iteration < 2000:
         current = path[-1]
-        next_node = get_next_node(matrix, current, visited)
-
+        next_node, p, e = get_next_node(adjacency, current, visited)
         if next_node is None:
             return None, float('inf')
+
+        energy -= e
 
         path.append(next_node)
         visited.add(next_node)
         iteration += 1
 
-    energy = calculate_path_energy(matrix, path)
+    energy = calculate_path_energy(adjacency, path)
     return path, energy
 
-def calculate_path_energy(matrix, path):
+def calculate_path_energy(adjacency, path):
     energy = 0
     for i in range(len(path) - 1):
         node1 = path[i]
@@ -109,66 +114,87 @@ def calculate_path_energy(matrix, path):
 
     return energy
 
-def get_next_node(matrix, current, visited):
-    neighbors = get_neighbors(matrix, current)
+def get_next_node(adjacency, current, visited):
+    neighbors = adjacency[current.x,current.y][1]
     probabilities = []
     total_probability = 0
 
     for next_node in neighbors:
         if next_node not in visited:
-            pheromone, heuristic = get_pheromone_and_heuristic(matrix, current, next_node)
+            pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, next_node, visited)
             denominator = 0
 
             for neighbor in neighbors:
-                pheromone_t, heuristic_t = get_pheromone_and_heuristic(matrix, current, neighbor)
+                pheromone_t, heuristic_t,energy_t = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor, visited)
                 denominator += pheromone_t * heuristic_t
 
             probability = (pheromone * heuristic) / denominator
-            probabilities.append((next_node,probability))
+            probabilities.append((next_node,probability, energy))
             total_probability += probability
 
     if total_probability == 0:
-        return None
+        return None, float(0), float('inf')
 
     return choose_next_node(probabilities)
 
 def choose_next_node(probabilities):
     if random.random() < 0.9:
-        return max(probabilities, key=lambda x: x[1])[0]
+        return max(probabilities, key=lambda x: x[1])
     else:
         return roulette_wheel_selection(probabilities)
 
 def roulette_wheel_selection(probabilities):
-    nodes, weights = zip(*probabilities)
-    normalized_weights = np.array(weights) / np.sum(weights)
-    return np.random.choice(nodes, p=normalized_weights)
+    nodes = [node for (node, _, _) in probabilities]
+    probs = [prob for (_, prob, _) in probabilities]
 
-def get_pheromone_and_heuristic(matrix, node1, node2):
+    probs = np.array(probs)
+
+    probs /= probs.sum()
+    selected_node = np.random.choice(nodes, p=probs)
+
+    selected_tuple = next((t for t in probabilities if t[0] == selected_node), None)
+    return selected_tuple
+
+def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, visited):
     parameters = AOCParameters()
-    pheromone = matrix[node1.x][node1.y].pheromone ** parameters.get_pheromone_influence()
+
+    pheromone = adjacency[node1.x,node1.y][0].pheromone ** parameters.get_pheromone_influence()
     d = distance(node1.x, node1.y, node1.z, node2.x, node2.y, node2.z)
     energy = calculate_energy(d, node1.z, node2.z)
     heuristic = (1 / energy) ** parameters.get_heuristic_influence()
 
-    return pheromone, heuristic
+    return pheromone, heuristic, energy
 
-def update_pheromones(matrix,paths,energies):
+def update_pheromones(adjacency,paths,energies, best_path):
     q = AOCParameters().get_pheromone_deposit_factor()
     evaporation_rate = AOCParameters().get_pheromone_evaporation()
+
+    if best_path is not None:
+        for node in best_path:
+            adjacency[node.x, node.y][0].pheromone = (1 - evaporation_rate) * adjacency[node.x, node.y][
+                0].pheromone + evaporation_rate + 20
 
     for path, energy in zip(paths, energies):
         for i in range(len(path)):
             node = path[i]
-            matrix[node.x][node.y].pheromone = (1 - evaporation_rate) * matrix[node.x][node.y].pheromone + evaporation_rate * (q / energy)
+            bonus = 0
+
+            if node.bonus == 1:
+                bonus = 5
+            elif node.bonus == -1:
+                bonus = -1
+
+            adjacency[node.x,node.y][0].pheromone = (1 - evaporation_rate) * adjacency[node.x,node.y][0].pheromone + evaporation_rate * (q / energy) + bonus
 
 def main():
-    matrix = read_surface("aco_points_512x512.txt", 512, 512)
-    start_point, end_point = read_end_points("aco_start_end_512x512.txt", matrix)
+    adjacency, bonuses = read_surface("aco_points_512x512.txt")
+    start_point, end_point = read_end_points("aco_start_end_512x512.txt", adjacency)
+    print(start_point, end_point)
+    path, energy = aco_algorithm(adjacency, start_point, end_point, bonuses)
+    print(f"Best-energy: {energy}")
+    print(path)
 
-    path, energy = aco_algorithm(matrix, start_point, end_point)
-    pheromones = [p.pheromone for p in path]
-    print(pheromones)
-    # visualize(matrix,start_point, end_point ,path, "pheromone")
+    visualize(adjacency,start_point, end_point ,path, "pheromone")
 
 if __name__ == '__main__':
     main()
