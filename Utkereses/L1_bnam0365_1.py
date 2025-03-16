@@ -10,7 +10,7 @@ def write_to_output(filename, path):
     f.write(f"{path[-1].g}\n")
 
     for p in path:
-        f.write(f"{p.x} {p.y} {p.f} {p.g} {p.h}\n")
+        f.write(f"{p.x} {p.y}\n")
 
     f.close()
 

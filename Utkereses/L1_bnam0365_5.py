@@ -16,10 +16,11 @@ def main():
 
     start = time.time()
     write_to_output("output_a.txt", path)
-    visualize(adjacency, path,"a")
+    visualize(adjacency, path, "a")
     end = time.time()
 
     print(f"Render ido: {end - start}")
+
 
 if __name__ == "__main__":
     main()

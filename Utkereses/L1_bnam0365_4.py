@@ -2,12 +2,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+
 def heatmap_3d(adjacency, path, name):
     fig = plt.figure(figsize=(10, 7))
     ax = fig.add_subplot(111, projection='3d')
 
     if path:
-        # Collect coordinates
         x_coords, y_coords, z_coords = [], [], []
         barrier_x, barrier_y, barrier_z = [], [], []
 
@@ -25,14 +25,11 @@ def heatmap_3d(adjacency, path, name):
         y_coords = np.array(y_coords)
         z_coords = np.array(z_coords)
 
-        # Plot surface
         ax.plot_trisurf(x_coords, y_coords, z_coords, cmap='coolwarm', alpha=0.8)
 
-        # Plot barriers
         if barrier_x:
             ax.scatter(barrier_x, barrier_y, barrier_z, color="black", marker="x", s=10, label="Barriers")
 
-        # Plot path
         path_x = [p.y for p in path]
         path_y = [p.x for p in path]
         path_z = [adjacency[p.x, p.y][0].z for p in path]
@@ -50,6 +47,7 @@ def heatmap_3d(adjacency, path, name):
     plt.savefig(f"{name}-3d-heatmap.png")
     # plt.show()
 
+
 def heatmap_2d(adjacency, path, name):
     min_x = min(x for x, y in adjacency)
     max_x = max(x for x, y in adjacency)
@@ -62,12 +60,12 @@ def heatmap_2d(adjacency, path, name):
     heatmap = np.full((max_x - min_x + 1, max_y - min_y + 1), 0)
 
     for (x, y) in adjacency:
-        heatmap[x + offset_x, y + offset_y] = adjacency[x, y][0].z  # Shift indices to positive range
+        heatmap[x + offset_x, y + offset_y] = adjacency[x, y][0].z
 
     plt.figure(figsize=(8, 6))
 
     ax = sns.heatmap(
-        heatmap, cmap="coolwarm",mask=np.isnan(heatmap), cbar_kws={"extend": "both"}
+        heatmap, cmap="coolwarm", mask=np.isnan(heatmap), cbar_kws={"extend": "both"}
     )
 
     if path:
@@ -88,30 +86,24 @@ def plot_3d(adjacency, path, name):
     fig = plt.figure(figsize=(10, 7))
     ax = fig.add_subplot(111, projection='3d')
 
-    # Extract barriers and passable nodes
     barriers = np.array([(x, y, node.z) for (x, y), (node, _) in adjacency.items() if node.barrier == 1])
     passable = np.array([(x, y, node.z) for (x, y), (node, _) in adjacency.items() if node.barrier == 0])
 
-    # Plot passable nodes
     if passable.size > 0:
         ax.scatter(passable[:, 0], passable[:, 1], passable[:, 2],
                    c='g', marker='o', s=1, alpha=0.01, label='Passable')
 
-    # Plot barriers
     if barriers.size > 0:
         ax.scatter(barriers[:, 0], barriers[:, 1], barriers[:, 2],
                    c='k', marker='x', s=10, label='Barriers', alpha=0.3)
 
-    # Plot path if it exists
     if path:
         path_coords = np.array([(p.x, p.y, adjacency[p.x, p.y][0].z) for p in path])
         ax.plot(path_coords[:, 0], path_coords[:, 1], path_coords[:, 2], 'b-', linewidth=3, label='Path')
 
-        # Plot start and end points
         ax.scatter(path_coords[0, 0], path_coords[0, 1], path_coords[0, 2], c='r', marker='o', s=50, label='Start')
         ax.scatter(path_coords[-1, 0], path_coords[-1, 1], path_coords[-1, 2], c='b', marker='o', s=50, label='End')
 
-    # Set view and labels
     ax.view_init(elev=30, azim=45)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
@@ -119,9 +111,9 @@ def plot_3d(adjacency, path, name):
     ax.set_title(f"Path Cost: {path[-1].g if path else 'N/A'}")
     ax.legend(loc="upper right")
 
-    # Save and show the plot
     plt.savefig(f"{name}-3d-plot.png")
     plt.show()
+
 
 def plot_2d(adjacency, path, name):
     plt.figure()
@@ -131,15 +123,15 @@ def plot_2d(adjacency, path, name):
         for i, p in enumerate(path):
             paths[i] = (p.x, p.y)
 
-        barriers = np.array([(x,y) for x,y in adjacency if adjacency[x, y][0].barrier == 1])
-        plt.plot(barriers[:, 0], barriers[:, 1],'x',markersize=4 , linewidth=1, label="Barriers")
+        barriers = np.array([(x, y) for x, y in adjacency if adjacency[x, y][0].barrier == 1])
+        plt.plot(barriers[:, 0], barriers[:, 1], 'x', markersize=4, linewidth=1, label="Barriers")
         plt.plot(paths[:, 1], paths[:, 0], 'r-', linewidth=3, label='Path')
         start, end = path[0], path[-1]
-        plt.plot(start.y, start.x, 'ro',markersize=8, label='Start')
+        plt.plot(start.y, start.x, 'ro', markersize=8, label='Start')
         plt.plot(end.y, end.x, 'bo', markersize=8, label='End')
 
     plt.grid(True)
-    plt.legend(loc="upper right",fontsize=12)
+    plt.legend(loc="upper right", fontsize=12)
     plt.title(f"Ut koltsege: {path[-1].g}")
     plt.savefig(f"{name}-2d-plot.png")
     plt.show()
