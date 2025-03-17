@@ -14,8 +14,6 @@ def main():
     path = a_star(adjacency, start_point, end_point)
     end = time.time()
     print(f"A* ido: {end - start}")
-    paths = [(p.x,p.y) for p in path]
-    print(paths)
 
     start = time.time()
     write_to_output("output_a.txt", path)

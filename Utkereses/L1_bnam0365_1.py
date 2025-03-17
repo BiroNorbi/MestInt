@@ -110,8 +110,7 @@ def a_star(adjacency, start_point, end_point, heuristic=heuristic_function_dista
             elif g < neighbor.g:
                 neighbor.parent = current
                 neighbor.g = g
-                neighbor.h = heuristic(neighbor, end_point)
-                neighbor.f = neighbor.g + neighbor.h
-                heapq.heappush(open_queue, neighbor)
+                neighbor.f = g + neighbor.h
+                heapq.heapify(open_queue)
 
     return []
