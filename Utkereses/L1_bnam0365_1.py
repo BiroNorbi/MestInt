@@ -1,3 +1,5 @@
+import heapq
+
 import numpy as np
 
 from L1_bnam0365_2 import distance, heuristic_function_distance
@@ -72,24 +74,22 @@ def reconstruct_path(current):
 
 
 def a_star(adjacency, start_point, end_point, heuristic=heuristic_function_distance, cost_function=distance):
-    open_queue = PriorityQueue()
-    open_set = set()
-    open_set.add(start_point)
-    open_queue.put(start_point)
-    closed_set = set()
+    open_queue = [start_point]
+    open_dict = {start_point: True}
+    closed_set = {}
+
 
     start_point.g = 0
     start_point.h = heuristic(start_point, end_point)
     start_point.f = start_point.g + start_point.h
     start_point.parent = None
 
-    while open_set:
-        current = open_queue.get()
+    while open_dict:
+        current = heapq.heappop(open_queue)
         if current == end_point:
             return reconstruct_path(current)
 
-        open_set.remove(current)
-        closed_set.add(current)
+        closed_set[current] = True
 
         neighbors = adjacency[(current.x, current.y)][1]
 
@@ -99,18 +99,19 @@ def a_star(adjacency, start_point, end_point, heuristic=heuristic_function_dista
 
             g = current.g + cost_function(current.x, current.y, current.z, neighbor.x, neighbor.y, neighbor.z)
 
-            if neighbor not in open_set:
+            if neighbor not in open_dict:
                 neighbor.parent = current
                 neighbor.g = g
                 neighbor.h = heuristic(neighbor, end_point)
                 neighbor.f = neighbor.g + neighbor.h
 
-                open_queue.put(neighbor)
-                open_set.add(neighbor)
+                heapq.heappush(open_queue, neighbor)
+                open_dict[neighbor] = True
             elif g < neighbor.g:
                 neighbor.parent = current
                 neighbor.g = g
                 neighbor.h = heuristic(neighbor, end_point)
                 neighbor.f = neighbor.g + neighbor.h
+                heapq.heappush(open_queue, neighbor)
 
     return []
