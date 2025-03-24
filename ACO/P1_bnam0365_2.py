@@ -8,7 +8,6 @@ from P1_bnam0365_3 import *
 def read_surface(filename):
     f = open(filename, "r")
     adjacency = {}
-    bonuses = 0
 
     neighbors_direction = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
     for line in f:
@@ -17,11 +16,6 @@ def read_surface(filename):
         y = int(float(lines[1]))
         z = float(lines[2])
         bonus = int(lines[3])
-
-        if bonus == 1:
-            bonuses += 5
-        elif bonus == -1:
-            bonuses -= 10
 
         point = Node(x, y, z, bonus)
         neighbors = []
@@ -36,7 +30,7 @@ def read_surface(filename):
         adjacency[(x, y)] = (point, neighbors)
 
     f.close()
-    return adjacency, bonuses
+    return adjacency
 
 def read_end_points(filename, adjacency):
     f = open(filename, "r")
@@ -51,7 +45,7 @@ def read_end_points(filename, adjacency):
 
     return start_point, end_point
 
-def aco_algorithm(adjacency, start_point, end_point, bonuses):
+def aco_algorithm(adjacency, start_point, end_point):
     best_path, minimal_energy, d = None, float("inf"), float("inf")
     parameters = AOCParameters()
 
@@ -59,30 +53,28 @@ def aco_algorithm(adjacency, start_point, end_point, bonuses):
         paths, energies = [], []
 
         for _ in range(parameters.get_number_of_ants()):
-            path, energy = construct_ant_path(adjacency, start_point, end_point, bonuses)
+            path, energy = construct_ant_path(adjacency, start_point, end_point)
             if path:
                 paths.append(path)
                 energies.append(energy)
                 last_node_visited = path[-1]
                 d_t = distance(last_node_visited.x, last_node_visited.y, last_node_visited.z, end_point.x, end_point.y, end_point.z)
-                if d_t < d:
+                if 0 < energy < minimal_energy:
                     d, minimal_energy, best_path = d_t, energy, path
 
         update_pheromones(adjacency, paths, energies, best_path, end_point)
-    return best_path, minimal_energy
+    return best_path, minimal_energy, d
 
-def construct_ant_path(adjacency, start_point, end_point, bonuses):
+def construct_ant_path(adjacency, start_point, end_point):
     path = [start_point]
-    energy = abs(bonuses)
     used_energy, iteration = 0, 0
 
-    while path[-1] != end_point and energy > 0 and iteration < 2000:
+    while path[-1] != end_point and iteration < 2000:
         current = path[-1]
         next_node, p, e = get_next_node(adjacency, current, end_point)
         if next_node is None:
             return None, float('inf')
 
-        energy -= e
         used_energy += e
         path.append(next_node)
         iteration += 1
@@ -123,10 +115,11 @@ def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, end_point):
     params = AOCParameters()
     pheromone = adjacency[node1.x, node1.y][0].pheromone ** params.get_pheromone_influence()
     d = distance(node1.x, node1.y, node1.z, node2.x, node2.y, node2.z)
-    energy = calculate_energy(d, node1.z, node2.z)
+    energy = calculate_energy(d, node1.z, node2.z, node2.bonus)
 
     distance_to_goal = distance(node2.x, node2.y, node2.z, end_point.x, end_point.y, end_point.z)
-    heuristic = (1 / (distance_to_goal + 1e-5)) ** params.get_heuristic_influence()
+    energy_to_goal = calculate_energy(distance_to_goal, node2.z, end_point.z, end_point.bonus)
+    heuristic = (1 / (energy + 1e-9)) ** params.get_heuristic_influence()
 
     return pheromone, heuristic, energy
 
@@ -140,17 +133,17 @@ def update_pheromones(adjacency, paths, energies, best_path, end_point):
 
             adjacency[node.x, node.y][0].pheromone = (
                     (1 - evaporation_rate) * adjacency[node.x, node.y][0].pheromone
-                    + evaporation_rate * (q / energy)
-                    + (1 / (distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z) + 1e-5))
+                    + (q / energy)
+                    + (10000 / (distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z) + 1e-5))
             )
 
 def main():
-    adjacency, bonuses = read_surface("aco_points_512x512.txt")
+    adjacency = read_surface("aco_points_512x512.txt")
     start_point, end_point = read_end_points("aco_start_end_512x512.txt", adjacency)
 
-    path, energy = aco_algorithm(adjacency, start_point, end_point, bonuses)
+    path, energy, d = aco_algorithm(adjacency, start_point, end_point)
     print(f"Best energy: {energy}")
-    print()
+    print(f"Distance from the destination: {d}")
 
     visualize(adjacency, start_point, end_point, path, "pheromone")
 
