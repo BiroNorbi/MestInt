@@ -10,10 +10,10 @@ class AOCParameters:
     def __init__(self):
         self.pheromone_influence = 1
         self.heuristic_influence = 2
-        self.pheromone_evaporation = 0.5
-        self.pheromone_deposit_factor = 1000
-        self.number_of_ants = 60
-        self.number_of_iterations = 1000
+        self.pheromone_evaporation = 0.2
+        self.pheromone_deposit_factor = 300
+        self.number_of_ants = 10
+        self.number_of_iterations = 100
 
     def get_all_parameters(self):
         return self.pheromone_influence, self.heuristic_influence, self.pheromone_evaporation, self.pheromone_deposit_factor, self.number_of_ants, self.number_of_iterations

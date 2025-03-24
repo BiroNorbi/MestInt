@@ -92,13 +92,13 @@ def construct_ant_path(adjacency, start_point, end_point, bonuses):
     path = [start_point]
     visited = set(path)
 
-    energy = abs(bonuses) % 10
+    energy = abs(bonuses)
     used_energy = 0
     iteration = 0
 
-    while path[-1] != end_point and energy > 0 and iteration < 10000:
+    while path[-1] != end_point and energy > 0 and iteration < 2000:
         current = path[-1]
-        next_node, p, e = get_next_node(adjacency, current, visited)
+        next_node, p, e = get_next_node(adjacency, current, end_point)
         if next_node is None:
             return None, float('inf')
 
@@ -124,19 +124,18 @@ def calculate_path_energy(adjacency, path):
     return energy
 
 
-def get_next_node(adjacency, current, visited):
+def get_next_node(adjacency, current, end_point):
     neighbors = adjacency[current.x, current.y][1]
     probabilities = []
     total_probability = 0
     denominator = 0
 
     for neighbor in neighbors:
-        pheromone_t, heuristic_t, energy_t = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor,
-                                                                                    visited)
+        pheromone_t, heuristic_t, energy_t = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor,end_point)
         denominator += pheromone_t * heuristic_t
 
     for next_node in neighbors:
-        pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, next_node, visited)
+        pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, next_node, end_point)
         probability = (pheromone * heuristic) / denominator
         probabilities.append((next_node, probability, energy))
         total_probability += probability
@@ -149,7 +148,7 @@ def get_next_node(adjacency, current, visited):
 
 
 def choose_next_node(probabilities):
-    if random.random() < 0.3:
+    if random.random() < 0.9:
         return max(probabilities, key=lambda x: x[1])
     else:
         return roulette_wheel_selection(probabilities)
@@ -161,21 +160,21 @@ def roulette_wheel_selection(probabilities):
 
     probs = np.array(probs)
 
-    # probs /= probs.sum()
-    # print(probs, probs.sum())
     selected_node = np.random.choice(nodes, p=probs)
 
     selected_tuple = next((t for t in probabilities if t[0] == selected_node), None)
     return selected_tuple
 
 
-def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, visited):
+def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, end_point):
     parameters = AOCParameters()
 
     pheromone = adjacency[node1.x, node1.y][0].pheromone ** parameters.get_pheromone_influence()
     d = distance(node1.x, node1.y, node1.z, node2.x, node2.y, node2.z)
     energy = calculate_energy(d, node1.z, node2.z)
-    heuristic = (1 / energy) ** parameters.get_heuristic_influence()
+
+    distance_to_goal = distance(node1.x, node1.y, node1.z, end_point.x, end_point.y, end_point.z)
+    heuristic = (1 / distance_to_goal) ** parameters.get_heuristic_influence()
 
     return pheromone, heuristic, energy
 
@@ -192,11 +191,11 @@ def update_pheromones(adjacency, paths, energies, best_path, end_point):
     for path, energy in zip(paths, energies):
         for i in range(len(path)):
             node = path[i]
-
+            pheromone,heuristic_to_end, energy_to_end = get_pheromone_and_heuristic_and_energy(adjacency, node, end_point, end_point)
             adjacency[node.x, node.y][0].pheromone = (
                     (1 - evaporation_rate) * adjacency[node.x, node.y][0].pheromone
-                    + evaporation_rate * (q / energy)
-                    + (1000 / distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z))
+                    + evaporation_rate * (q / energy_to_end)
+                    + (100 / distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z))
             )
             #print((10 / distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z)))
 
@@ -208,7 +207,6 @@ def main():
     print(start_point, end_point)
     path, energy = aco_algorithm(adjacency, start_point, end_point, bonuses)
     print(f"Best-energy: {energy}")
-    print(path)
 
     visualize(adjacency, start_point, end_point, path, "pheromone")
 
