@@ -42,13 +42,13 @@ def pheromones(adjacency, name):
     offset_x = -min_x
     offset_y = -min_y
 
-    heatmap = np.full((max_x - min_x + 1, max_y - min_y + 1), np.inf)
+    heatmap = np.full((max_x - min_x + 1, max_y - min_y + 1), np.nan)
 
     for (x, y) in adjacency:
         heatmap[x + offset_x, y + offset_y] = adjacency[x, y][0].pheromone
 
     ax = sns.heatmap(
-        heatmap.T, cmap="viridis", mask=np.isnan(heatmap), cbar_kws={"extend": "both"})
+        heatmap.T, cmap="viridis", mask=np.isnan(heatmap), vmin=0, vmax=6, cbar_kws={"extend": "both"})
 
     plt.title("Pheromones")
     plt.gca().invert_yaxis()
