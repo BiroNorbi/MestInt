@@ -18,7 +18,7 @@ class AOCParameters:
         self.pheromone_influence = 1
         self.heuristic_influence = 2
         self.pheromone_evaporation = 0.2
-        self.pheromone_deposit_factor = 200
+        self.pheromone_deposit_factor = 100
         self.number_of_ants = 10
         self.number_of_iterations = 150
 

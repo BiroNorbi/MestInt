@@ -119,7 +119,7 @@ def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, end_point):
 
     distance_to_goal = distance(node2.x, node2.y, node2.z, end_point.x, end_point.y, end_point.z)
     energy_to_goal = calculate_energy(distance_to_goal, node2.z, end_point.z, end_point.bonus)
-    heuristic = (1 / (energy + 1e-9)) ** params.get_heuristic_influence()
+    heuristic = (1 / (energy_to_goal + 1e-9)) ** params.get_heuristic_influence()
 
     return pheromone, heuristic, energy
 
@@ -134,7 +134,7 @@ def update_pheromones(adjacency, paths, energies, best_path, end_point):
             adjacency[node.x, node.y][0].pheromone = (
                     (1 - evaporation_rate) * adjacency[node.x, node.y][0].pheromone
                     + (q / energy)
-                    + (10000 / (distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z) + 1e-5))
+                    #+ (10000 / (distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z) + 1e-5))
             )
 
 def main():
