@@ -43,7 +43,32 @@ def read_end_points(filename, adjacency):
     end_point = adjacency[(x, y)][0]
     f.close()
 
+    for x,y in adjacency:
+        distance_from_end = distance(x,y, adjacency[x,y][0].z, end_point.x, end_point.y, end_point.z)
+        adjacency[x,y][0].pheromone = 1e-5 + (250 / (distance_from_end + 1e-9) )
+
     return start_point, end_point
+
+def remove_loops(path):
+    visited = {}
+    new_path = []
+
+    for i, node in enumerate(path):
+        if node in visited:
+            new_path = new_path[:visited[node] + 1]
+        else:
+            visited[node] = len(new_path)
+            new_path.append(node)
+
+    return new_path
+
+def daemonize_path(paths,best_path):
+    new_paths = []
+    b_path = remove_loops(best_path)
+    for path in paths:
+        new_paths.append(remove_loops(path))
+
+    return new_paths, b_path
 
 def aco_algorithm(adjacency, start_point, end_point):
     best_path, minimal_energy, d = None, float("inf"), float("inf")
@@ -61,49 +86,92 @@ def aco_algorithm(adjacency, start_point, end_point):
                 d_t = distance(last_node_visited.x, last_node_visited.y, last_node_visited.z, end_point.x, end_point.y, end_point.z)
                 if 0 < energy < minimal_energy:
                     d, minimal_energy, best_path = d_t, energy, path
+                    #visualize(adjacency, start_point, end_point,path,"ph")
 
+        #paths, best_path = daemonize_path(paths, best_path)
         update_pheromones(adjacency, paths, energies, best_path, end_point)
+        if i % 10 == 0:
+            visualize(adjacency, start_point, end_point, best_path,"pheromone")
     return best_path, minimal_energy, d
 
 def construct_ant_path(adjacency, start_point, end_point):
-    path = [start_point]
     used_energy, iteration = 0, 0
+    path = [start_point]
+    visited = {start_point: True}
 
-    while path[-1] != end_point and iteration < 2000:
+    while path[-1] != end_point and iteration < 12000:
         current = path[-1]
-        next_node, p, e = get_next_node(adjacency, current, end_point)
-        if next_node is None:
-            return None, float('inf')
+        visited[current] = True
+        next_node, p, e = get_next_node(adjacency, current, end_point,visited)
 
-        used_energy += e
         path.append(next_node)
+        used_energy += e
         iteration += 1
+
+        if next_node == end_point:
+            print("Ant reach the goal")
 
     return path, used_energy
 
-def get_next_node(adjacency, current, end_point):
+def get_next_node(adjacency, current, end_point,visited):
     neighbors = adjacency[current.x, current.y][1]
     probabilities, denominator = [], 0
+    data = {}
 
     for neighbor in neighbors:
         pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor, end_point)
+        data[neighbor] = (pheromone, heuristic, energy)
         denominator += pheromone * heuristic
 
     for neighbor in neighbors:
-        pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor, end_point)
-        probability = (pheromone * heuristic) / denominator
-        probabilities.append((neighbor, probability, energy))
+        neighbor_data = data[neighbor]
+        probability = (neighbor_data[0] * neighbor_data[1]) / denominator
+        probabilities.append((neighbor, probability, neighbor_data[2]))
 
     if sum(p[1] for p in probabilities) == 0:
         return None, 0, float('inf')
 
-    return choose_next_node(probabilities)
+    return choose_next_node(probabilities, visited)
 
-def choose_next_node(probabilities):
-    if random.random() < 0.6:
-        return max(probabilities, key=lambda x: x[1])
+def choose_next_node(probabilities, visited):
+    unvisited = [prob for prob in probabilities if prob[0] not in visited]
+
+    if len(unvisited) > 0:
+        if random.random() < 0.1:
+            return max(unvisited, key=lambda p: p[1])
+        else:
+            nodes = [node[0] for node in unvisited]
+            selected_node = np.random.choice(nodes)
+
+            return next((t for t in unvisited if t[0] == selected_node), None)
     else:
-        return roulette_wheel_selection(probabilities)
+        nodes = [node[0] for node in probabilities]
+        selected_node = np.random.choice(nodes)
+        return next((t for t in probabilities if t[0] == selected_node), None)
+
+    # ok = False
+    # iteration = 0
+    # while not ok and iteration < len(probabilities):
+    #     if random.random() < 0.5:
+    #         node = max(probabilities, key=lambda x: x[1])
+    #     else:
+    #         node = roulette_wheel_selection(probabilities)
+    #     if node[0] not in visited:
+    #         return node
+    #     else:
+    #         iteration += 1
+    #
+    # nodes = [node[0] for node in probabilities]
+    # selected_node = np.random.choice(nodes)
+    #
+    # return next((t for t in probabilities if t[0] == selected_node), None)
+    #80% chance to pick the best, 20% chance to explore
+    # if random.random() < 0.8:
+    #     selected_node = max(probabilities, key=lambda x: x[1])[0]
+    # else:
+    #     selected_node = roulette_wheel_selection(probabilities)[0]
+    #
+    # return next((t for t in probabilities if t[0] == selected_node), None)
 
 def roulette_wheel_selection(probabilities):
     nodes, probs = [node for (node, _, _) in probabilities], [prob for (_, prob, _) in probabilities]
@@ -119,7 +187,7 @@ def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, end_point):
 
     distance_to_goal = distance(node2.x, node2.y, node2.z, end_point.x, end_point.y, end_point.z)
     energy_to_goal = calculate_energy(distance_to_goal, node2.z, end_point.z, end_point.bonus)
-    heuristic = (1 / (energy_to_goal + 1e-9)) ** params.get_heuristic_influence()
+    heuristic = (1 / (1e-9 + energy + distance_to_goal)) ** params.get_heuristic_influence()
 
     return pheromone, heuristic, energy
 
@@ -127,15 +195,19 @@ def update_pheromones(adjacency, paths, energies, best_path, end_point):
     q = AOCParameters().get_pheromone_deposit_factor()
     evaporation_rate = AOCParameters().get_pheromone_evaporation()
 
-    for path, energy in zip(paths, energies):
-        for i in range(len(path)):
-            node = path[i]
+    for x,y in adjacency:
+        adjacency[x,y][0].pheromone *= (1 - evaporation_rate)
 
-            adjacency[node.x, node.y][0].pheromone = (
-                    (1 - evaporation_rate) * adjacency[node.x, node.y][0].pheromone
-                    + (q / energy)
-                    #+ (10000 / (distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z) + 1e-5))
-            )
+    for path, energy in zip(paths, energies):
+        if path:
+            if path[-1] == end_point:
+                for node in path:
+                    distance_to_goal = distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z)
+                    adjacency[node.x, node.y][0].pheromone += (q / energy) + (1 / (1 + distance_to_goal)) + 0.8
+            else:
+                for node in path:
+                    distance_to_goal = distance(node.x, node.y, node.z, end_point.x, end_point.y, end_point.z)
+                    adjacency[node.x, node.y][0].pheromone += (q / energy)
 
 def main():
     adjacency = read_surface("aco_points_512x512.txt")
