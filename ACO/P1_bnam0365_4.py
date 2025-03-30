@@ -18,7 +18,7 @@ def heatmap_2d(adjacency, start, end, path, name):
         heatmap[x + offset_x, y + offset_y] = adjacency[x, y][0].z
 
     ax = sns.heatmap(
-        heatmap.T, cmap="coolwarm", mask=np.isnan(heatmap),cbar_kws={"extend": "both"})
+        heatmap.T, cmap="coolwarm", mask=np.isnan(heatmap), cbar_kws={"extend": "both"})
 
     if path:
         path_x = [p.x + offset_x for p in path]
@@ -32,6 +32,7 @@ def heatmap_2d(adjacency, start, end, path, name):
     plt.legend(loc="upper right")
     plt.gca().invert_yaxis()
     plt.show()
+
 
 def pheromones(adjacency, name):
     min_x = min(x for x, y in adjacency)
@@ -48,11 +49,12 @@ def pheromones(adjacency, name):
         heatmap[x + offset_x, y + offset_y] = adjacency[x, y][0].pheromone
 
     ax = sns.heatmap(
-        heatmap.T, cmap="viridis", mask=np.isnan(heatmap), vmin=0, vmax=2.5, cbar_kws={"extend": "both"})
+        heatmap.T, cmap=sns.cubehelix_palette(as_cmap=True), mask=np.isnan(heatmap), vmin=0, vmax=10, cbar_kws={"extend": "both"})
 
     plt.title("Pheromones")
     plt.gca().invert_yaxis()
     plt.show()
+
 
 def visualize(matrix, start, end, path, name):
     heatmap_2d(matrix, start, end, path, name)

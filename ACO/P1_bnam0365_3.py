@@ -3,11 +3,6 @@ from math import sqrt
 def calculate_energy(d, z1, z2,is_barrier):
     energy = 0.2 * d + 0.1 * (z2 - z1)
 
-    # if is_barrier == 1:
-    #     energy -= 5
-    # elif is_barrier == -1:
-    #     energy += 10
-
     return energy
 
 def distance(x1, y1, z1, x2, y2, z2):
@@ -15,10 +10,10 @@ def distance(x1, y1, z1, x2, y2, z2):
 
 class AOCParameters:
     def __init__(self):
-        self.pheromone_influence = 4
-        self.heuristic_influence = 15
+        self.pheromone_influence = 2
+        self.heuristic_influence = 4
         self.pheromone_evaporation = 0.1
-        self.pheromone_deposit_factor = 400
+        self.pheromone_deposit_factor = 250
         self.number_of_ants = 5
         self.number_of_iterations = 150
 
