@@ -49,7 +49,7 @@ def pheromones(adjacency, name):
         heatmap[x + offset_x, y + offset_y] = adjacency[x, y][0].pheromone
 
     ax = sns.heatmap(
-        heatmap.T, cmap=sns.cubehelix_palette(as_cmap=True), mask=np.isnan(heatmap), vmin=0, vmax=10, cbar_kws={"extend": "both"})
+        heatmap.T, cmap="inferno", mask=np.isnan(heatmap), cbar_kws={"extend": "both"})
 
     plt.title("Pheromones")
     plt.gca().invert_yaxis()

@@ -1,3 +1,7 @@
+"""
+Gradient Descent Classifier for OCR
+"""
+
 import numpy as np
 
 from OCR.L2_bnam0365_2 import euclidean_distance, euclidean_norm

@@ -89,8 +89,9 @@ def aco_algorithm(adjacency, start_point, end_point):
                 last_node_visited = path[-1]
                 d_t = distance(last_node_visited.x, last_node_visited.y, last_node_visited.z, end_point.x, end_point.y,
                                end_point.z)
-                if 0 < energy < minimal_energy:
+                if energy < minimal_energy:
                     d, minimal_energy, best_path = d_t, energy, path
+                    print("New best energy found:", minimal_energy)
 
         paths, best_path = daemonize_path(paths, best_path)
         update_pheromones(adjacency, paths, energies, best_path, end_point)
@@ -112,16 +113,10 @@ def construct_ant_path(adjacency, start_point, end_point):
         path.append(next_node)
         used_energy += e
 
-        if next_node not in visited:
-            if next_node.bonus == 1:
-                used_energy -= 5
-            elif next_node.bonus == -1:
-                used_energy += 10
-
         iteration += 1
 
-        if next_node == end_point:
-            print("Ant reach the goal")
+        # if next_node == end_point:
+        #     print("Ant reach the goal")
 
     return path, used_energy
 
@@ -132,7 +127,7 @@ def get_next_node(adjacency, current, end_point, visited):
     data = {}
 
     for neighbor in neighbors:
-        pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor, end_point)
+        pheromone, heuristic, energy = get_pheromone_and_heuristic_and_energy(adjacency, current, neighbor, end_point, visited)
         data[neighbor] = (pheromone, heuristic, energy)
         denominator += pheromone * heuristic
 
@@ -171,15 +166,15 @@ def roulette_wheel_selection(probabilities):
     return next((t for t in probabilities if t[0] == selected_node), None)
 
 
-def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, end_point):
+def get_pheromone_and_heuristic_and_energy(adjacency, node1, node2, end_point, visited):
     params = AOCParameters()
     pheromone = adjacency[node1.x, node1.y][0].pheromone ** params.get_pheromone_influence()
     d = distance(node1.x, node1.y, node1.z, node2.x, node2.y, node2.z)
-    energy = calculate_energy(d, node1.z, node2.z, node2.bonus)
+    energy = calculate_energy(d, node1.z, node2.z, node2.bonus if node2 not in visited else 0)
 
     distance_to_goal = distance(node2.x, node2.y, node2.z, end_point.x, end_point.y, end_point.z)
-    energy_to_goal = calculate_energy(distance_to_goal, node2.z, end_point.z, end_point.bonus)
-    heuristic = (1 / (1e-9 + energy + energy_to_goal)) ** params.get_heuristic_influence()
+    energy_to_goal = calculate_energy(distance_to_goal, node2.z, end_point.z, end_point.bonus if end_point not in visited else 0)
+    heuristic = (1 / (5.001 + energy + energy_to_goal)) ** params.get_heuristic_influence()
 
     return pheromone, heuristic, energy
 

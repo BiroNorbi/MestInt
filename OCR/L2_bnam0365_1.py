@@ -13,7 +13,7 @@ def read_input(file_name):
             data.append(CharacterRepresentation(int(parts[-1]), list(map(int, parts[:-1]))))
     return data
 
-def display_number(data):
+def display_number(data, title="generated_number.png"):
     heatmap = np.full((8, 8), np.nan)
 
     for i in range(0,64):
@@ -25,6 +25,35 @@ def display_number(data):
         heatmap, cmap="gray", mask=np.isnan(heatmap), vmin=0, vmax=10,
         cbar_kws={"extend": "both"})
     ax.invert_yaxis()
-    plt.title("Pheromones")
+    plt.savefig(title)
+    plt.title("title")
     plt.gca().invert_yaxis()
+    plt.show()
+
+def display_euclidean_distance(data, title="euclidean_distance_from_centroid.png"):
+    heatmap = np.full((len(data), 10), np.nan)
+
+    for i in range(0,len(data)):
+        for j in range(0,10):
+            heatmap[i,j] = data[i][j]
+
+    ax = sns.heatmap(
+        heatmap, cmap="cividis", mask=np.isnan(heatmap), vmin=0,cbar_kws={"extend": "both"})
+    ax.invert_yaxis()
+    plt.savefig(title)
+    plt.title("Distance from centroid")
+    plt.show()
+
+def display_data_cosine_similarity(data, title="cosine_similarity.png"):
+    heatmap = np.full((len(data), len(data)), np.nan)
+
+    for i in range(0,len(data)):
+        for j in range(0,len(data)):
+            heatmap[i,j] = data[i][j]
+
+    ax = sns.heatmap(
+        heatmap, cmap="cividis", mask=np.isnan(heatmap),cbar_kws={"extend": "both"})
+    ax.invert_yaxis()
+    plt.savefig(title)
+    plt.title("Cosine Similarity")
     plt.show()

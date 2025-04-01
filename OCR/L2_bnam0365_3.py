@@ -1,3 +1,7 @@
+"""
+K-Nearest Neighbors (KNN) Classifier
+"""
+
 import heapq
 from queue import PriorityQueue
 
