@@ -1,4 +1,4 @@
-from SpamFilter.L3_bnam0365_2 import SpamFilter, read_data
+from SpamFilter.L3_bnam0365_2 import SpamFilter, read_data, SpamPrediction
 
 
 def read_train_data_and_stop_words(train, stop_words_file):
@@ -33,5 +33,13 @@ def test(filename, placeholder, spam_filter):
 
     for alpha in alphas:
         spam_filter.set_alpha(alpha)
-        accuracy = spam_filter.calculate_accuracy()
-        print(f"Alpha: {alpha}, Accuracy: {accuracy:.4f}%")
+        spam_filter.recalculate_vocabulary()
+        confusion_matrix = spam_filter.calculate_accuracy()
+        fn = confusion_matrix[SpamPrediction.FN]
+        fp = confusion_matrix[SpamPrediction.FP]
+        tn = confusion_matrix[SpamPrediction.TN]
+        tp = confusion_matrix[SpamPrediction.TP]
+
+        q = fp / fn
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
+        print(f"Alpha: {alpha}, Accuracy: {accuracy:.4f}, FP / FN: {q:.4f}")

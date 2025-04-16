@@ -1,3 +1,4 @@
+import enum
 import logging
 from math import log
 
@@ -8,6 +9,11 @@ logging.basicConfig(
     filemode='w'
 )
 
+class SpamPrediction(enum.Enum):
+    TN = "ham-ham"
+    FN = "ham-spam"
+    FP = "spam-ham"
+    TP = "spam-spam"
 
 def read_data(filename, stopwords, label):
     data = []
@@ -50,6 +56,8 @@ class SpamFilter:
         self.alpha = alpha
         self.test = []
         self.lambda_val = 0.00000001
+        self.number_of_ham = 0
+        self.number_of_spam = 0
 
     def set_alpha(self, alpha):
         self.alpha = alpha
@@ -70,14 +78,14 @@ class SpamFilter:
         self.ham_probability = ham / total
         self.spam_probability = spam / total
 
-    def create_vocabulary(self):
+    def train(self):
         number_of_spam = 0
         number_of_ham = 0
 
         for d in self.data:
             for w in d.data:
                 if w not in self.vocabulary:
-                    self.vocabulary[w] = [0, 0]
+                    self.vocabulary[w] = [0, 0, 0, 0]
 
                 if d.data_label == "ham":
                     self.vocabulary[w][0] += 1
@@ -85,14 +93,18 @@ class SpamFilter:
                 else:
                     self.vocabulary[w][1] += 1
                     number_of_spam += 1
+        self.number_of_ham = number_of_ham
+        self.number_of_spam = number_of_spam
+        self.recalculate_vocabulary()
 
+    def recalculate_vocabulary(self):
         card_v = len(self.vocabulary)
 
         for k, v in self.vocabulary.items():
             ham_count = v[0]
             spam_count = v[1]
-            self.vocabulary[k] = ((ham_count + self.alpha) / (number_of_ham + card_v * self.alpha),
-                                  (spam_count + self.alpha) / (number_of_spam + card_v * self.alpha))
+            self.vocabulary[k][2] = (ham_count + self.alpha) / (self.number_of_ham + card_v * self.alpha)
+            self.vocabulary[k][3] = (spam_count + self.alpha) / (self.number_of_spam + card_v * self.alpha)
 
     def read_test_data(self, filename):
         with open(filename, 'r') as f:
@@ -113,15 +125,19 @@ class SpamFilter:
         occurrence = test_data.occurrence
         for t in test_data.data:
             if t in self.vocabulary:
-                l += occurrence[t] * (log(max(self.vocabulary[t][1], self.lambda_val)) - log(
-                    max(self.vocabulary[t][0], self.lambda_val)))
-            else:
-                l += occurrence[t] * (log(self.lambda_val) - log(self.lambda_val))
+                l += occurrence[t] * (log(max(self.vocabulary[t][3], self.lambda_val)) - log(
+                    max(self.vocabulary[t][2], self.lambda_val)))
+            # else:
+            #     l += occurrence[t] * (log(self.lambda_val) - log(self.lambda_val))
         return l
 
     def calculate_accuracy(self):
-        ok = 0
-        all_data = len(self.test)
+        confusion_matrix = {
+            SpamPrediction.TN: 0,
+            SpamPrediction.FN: 0,
+            SpamPrediction.FP: 0,
+            SpamPrediction.TP: 0
+        }
 
         for t in self.test:
             value = self.filter(t)
@@ -131,11 +147,16 @@ class SpamFilter:
             else:
                 predicted_label = "ham"
 
-            if predicted_label == t.data_label:
-                ok += 1
+            if predicted_label == "spam" and t.data_label == "spam":
+                confusion_matrix[SpamPrediction.TP] += 1
+            elif predicted_label == "ham" and t.data_label == "ham":
+                confusion_matrix[SpamPrediction.TN] += 1
+            elif predicted_label == "spam" and t.data_label == "ham":
+                confusion_matrix[SpamPrediction.FP] += 1
+            elif predicted_label == "ham" and t.data_label == "spam":
+                confusion_matrix[SpamPrediction.FN] += 1
 
-        return ok / all_data
-
+        return confusion_matrix
 
 class Data:
     def __init__(self, data, label, occurrence):
