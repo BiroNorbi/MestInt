@@ -41,6 +41,7 @@ class Centroid:
                 representation = list(map(int, parts[:-1]))
                 data.append(CharacterRepresentation(character, representation))
             matrix = []
+            data.sort(key=lambda x: x.character)
             for ch1 in data:
                 column = []
                 for ch2 in data:

@@ -31,14 +31,14 @@ def display_number(data, title="generated_number.png"):
     plt.show()
 
 def display_euclidean_distance(data, title="euclidean_distance_from_centroid.png"):
-    heatmap = np.full((len(data), 10), np.nan)
+    heatmap = np.full((10, len(data)), np.nan)
 
     for i in range(0,len(data)):
         for j in range(0,10):
-            heatmap[i,j] = data[i][j]
+            heatmap[j,i] = data[i][j]
 
     ax = sns.heatmap(
-        heatmap, cmap="cividis", mask=np.isnan(heatmap), vmin=0,cbar_kws={"extend": "both"})
+        heatmap, cmap="cividis", mask=np.isnan(heatmap), vmin=0)
     ax.invert_yaxis()
     plt.savefig(title)
     plt.title("Distance from centroid")

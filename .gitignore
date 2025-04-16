@@ -180,3 +180,6 @@ cython_debug/
 *.png 
 *.jpg
 *.jpeg
+
+SpamFilter/ham/*
+SpamFilter/spam/*
