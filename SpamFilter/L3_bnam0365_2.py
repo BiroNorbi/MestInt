@@ -107,6 +107,8 @@ class SpamFilter:
             self.vocabulary[k][3] = (spam_count + self.alpha) / (self.number_of_spam + card_v * self.alpha)
 
     def read_test_data(self, filename):
+        self.test = []
+
         with open(filename, 'r') as f:
             for l in f:
                 line = l.strip()
@@ -124,11 +126,10 @@ class SpamFilter:
         l = log(self.spam_probability) - log(self.ham_probability)
         occurrence = test_data.occurrence
         for t in test_data.data:
-            if t in self.vocabulary:
-                l += occurrence[t] * (log(max(self.vocabulary[t][3], self.lambda_val)) - log(
-                    max(self.vocabulary[t][2], self.lambda_val)))
-            # else:
-            #     l += occurrence[t] * (log(self.lambda_val) - log(self.lambda_val))
+            p_spam = max(self.vocabulary[t][3], self.lambda_val) if t in self.vocabulary else self.lambda_val
+            p_ham = max(self.vocabulary[t][2], self.lambda_val) if t in self.vocabulary else self.lambda_val
+            
+            l += occurrence[t] * (log(p_spam) - log(p_ham))
         return l
 
     def calculate_accuracy(self):
@@ -142,7 +143,7 @@ class SpamFilter:
         for t in self.test:
             value = self.filter(t)
 
-            if value >= 0:
+            if value > 0:
                 predicted_label = "spam"
             else:
                 predicted_label = "ham"
