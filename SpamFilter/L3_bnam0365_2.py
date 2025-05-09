@@ -1,5 +1,6 @@
 import enum
 import logging
+import random
 from math import log
 
 logging.basicConfig(
@@ -9,11 +10,13 @@ logging.basicConfig(
     filemode='w'
 )
 
+
 class SpamPrediction(enum.Enum):
     TN = "ham-ham"
     FN = "ham-spam"
     FP = "spam-ham"
     TP = "spam-spam"
+
 
 def read_data(filename, stopwords, label):
     data = []
@@ -128,7 +131,7 @@ class SpamFilter:
         for t in test_data.data:
             p_spam = max(self.vocabulary[t][3], self.lambda_val) if t in self.vocabulary else self.lambda_val
             p_ham = max(self.vocabulary[t][2], self.lambda_val) if t in self.vocabulary else self.lambda_val
-            
+
             l += occurrence[t] * (log(p_spam) - log(p_ham))
         return l
 
@@ -158,6 +161,102 @@ class SpamFilter:
                 confusion_matrix[SpamPrediction.FN] += 1
 
         return confusion_matrix
+
+    def cross_validation(self, k=5, interval=100):
+        validation_data = self.data.copy()
+
+        fold_size = len(validation_data) // k
+
+        alphas = [i / interval for i in range(1, interval + 1)]
+        best_precision = 0
+        best_alpha = 0
+
+        for alpha in alphas:
+            spam_filter = SpamFilter(self.stop_words, alpha)
+            precision = 0
+
+            random.shuffle(validation_data)
+            folds = [validation_data[i:i + fold_size] for i in range(0, len(validation_data), fold_size)]
+
+            for i in range(k):
+                test_fold = folds[i]
+                train_folds = folds[:i] + folds[i + 1:]
+                train_data = [item for sublist in train_folds for item in sublist]
+
+                spam_filter.data = train_data
+                spam_filter.train()
+                spam_filter.calculate_probability()
+                spam_filter.recalculate_vocabulary()
+
+                spam_filter.test = test_fold
+                confusion_matrix = spam_filter.calculate_accuracy()
+
+                fn = confusion_matrix[SpamPrediction.FN]
+                fp = confusion_matrix[SpamPrediction.FP]
+                tn = confusion_matrix[SpamPrediction.TN]
+                tp = confusion_matrix[SpamPrediction.TP]
+                all_sum = fp + fn + tn + tp
+                accuracy = (tp + tn) / all_sum
+                precision += accuracy
+
+            precision /= k
+            print(f"Alpha: {alpha}, Precision: {precision * 100:.4f}")
+            if precision > best_precision:
+                best_precision = precision
+                best_alpha = alpha
+
+        print(f"Best Alpha: {best_alpha}, Best Precision: {best_precision * 100:.4f}")
+
+        return best_alpha
+
+    def read_unlabeled_data(self, num=999):
+        data = set()
+
+        for i in range(0, num + 1):
+            try:
+                file_name = f"ssl/{i}.txt"
+                data.add(read_data(file_name, self.stop_words, "unlabeled"))
+            except FileNotFoundError:
+                break
+
+        return data
+
+    def semi_supervised_learning(self, theta=5):
+        labeled_data = set(self.data.copy())
+        unlabeled_data = self.read_unlabeled_data()
+        spam_filter = SpamFilter(self.stop_words, self.alpha)
+        changed = True
+
+        while changed:
+            changed = False
+            spam_filter.data = labeled_data
+            spam_filter.train()
+            spam_filter.calculate_probability()
+            spam_filter.recalculate_vocabulary()
+
+            temp_data = set()
+
+            for t in unlabeled_data:
+                p_spam = max(spam_filter.vocabulary[t][3],
+                             spam_filter.lambda_val) if t in spam_filter.vocabulary else spam_filter.lambda_val
+                p_ham = max(spam_filter.vocabulary[t][2],
+                            spam_filter.lambda_val) if t in spam_filter.vocabulary else spam_filter.lambda_val
+                q = max(p_spam, p_ham) / min(p_spam, p_ham)
+
+                if q >= theta:
+                    value = spam_filter.filter(t)
+                    t.data_label = "spam" if value > 0 else "ham"
+                    temp_data.add(t)
+                    changed = True
+
+            labeled_data.update(temp_data)
+            unlabeled_data.difference_update(temp_data)
+
+        self.data = list(labeled_data)
+        self.train()
+        self.calculate_probability()
+        self.recalculate_vocabulary()
+
 
 class Data:
     def __init__(self, data, label, occurrence):
