@@ -262,6 +262,33 @@ class Quoridor:
 
         return 0
 
+    def check_if_valid_move(self, board, move, position, value, walls):
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        if move.move == "L":
+            for d in directions:
+                new_x = x + 2 * d[0]
+                new_y = y + 2 * d[1]
+                if 0 <= new_x < 2 * self.n - 1 and 0 <= new_y < 2 * self.n - 1 and board[x + d[0]][y + d[1]] != 9:
+                    if board[new_x][new_y] == 0 and new_x == move.x and new_y == move.y:
+                        return True
+                    else:
+                        if 0 <= new_x + 2 * d[0] < 2 * self.n - 1 and 0 <= new_y + 2 * d[1] < 2 * self.n - 1 and \
+                                board[new_x + d[0]][new_y + d[1]] != 9 and new_x + 2 * d[0] == move.x and new_y + 2 * d[1] == move.y:
+                            return True
+                        else:
+                            for ed in directions:
+                                enemy_x = new_x + 2 * ed[0]
+                                enemy_y = new_y + 2 * ed[1]
+
+                                if 2 * self.n - 1 > enemy_x >= 0 == board[enemy_x][
+                                    enemy_y] and 0 <= enemy_y < 2 * self.n - 1 and \
+                                        board[new_x + ed[0]][new_y + ed[1]] != 9 and enemy_x == move.x and enemy_y == move.y:
+                                    return True
+        else:
+            wall_can_be_placed, _, _ = self.wall_can_be_placed(move.x, move.y, move.wx, move.wy)
+            return wall_can_be_placed
+
     def wall_can_be_placed(self, x1, y1, x2, y2, walls_left):
         if walls_left == 0:
             False, float('inf'), float('inf')
@@ -356,6 +383,7 @@ class Quoridor:
                                                                                                   self.player_walls)
                     if wall_can_be_placed:
                         possible_moves.append((Move("F", x, y, x + 2, y), player_distance, enemy_distance))
+
         return possible_moves
 
     def heuristic(self, minimum, maximum, a=1):
@@ -364,7 +392,6 @@ class Quoridor:
     def min_max(self, board, player, player_pos, enemy_pos, player_walls, enemy_walls, max_depth=5, depth=0,
                 alpha=-float('inf'), beta=float('inf')):
         label = self.is_game_over(board)
-
         if label != 0:
             self.level += 1
             return (float('inf'), None) if label == 1 else (-float('inf'), None)
