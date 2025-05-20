@@ -105,7 +105,7 @@ class PathFinding:
 
     def a_star(self):
         board_state = tuple(tuple(row) for row in self.board)
-        if board_state in self.visited:
+        if board_state in self.path_cache:
             return self.path_cache[board_state]
 
         result = self.a_star_algorithm()
