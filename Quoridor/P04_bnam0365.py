@@ -171,8 +171,10 @@ class QuoridorUI:
     def render_winner(self, winner):
         if winner == 1:
             text = self.ENEMY_WINS
-        else:
+        elif winner == -1:
             text = self.PLAYER_WINS
+        else:
+            text = "\n"
 
         parts = text.split("\n")
 
