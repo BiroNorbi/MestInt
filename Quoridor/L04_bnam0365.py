@@ -3,6 +3,14 @@ import sys
 import time
 
 import numpy as np
+import logging
+
+logging.basicConfig(
+    filename='game_debug.log',           # Log file name
+    filemode='w',                        # Overwrite on each run, use 'a' to append
+    level=logging.DEBUG,                 # Log everything (DEBUG and above)
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 
 class Move:
@@ -48,11 +56,20 @@ class Node:
     def __eq__(self, other):
         return (self.x, self.y) == (other.x, other.y)
 
+    def __copy__(self):
+        new_node = Node(self.x, self.y, self.value)
+        new_node.g = self.g
+        new_node.h = self.h
+        new_node.f = self.f
+        new_node.parent = self.parent
+        return new_node
+
 
 class PathFinding:
     def __init__(self, n):
         self.n = n
-        self.board = np.array([[Node(i, j, 0) for j in range(2 * self.n - 1)] for i in range(2 * self.n - 1)], dtype=object)
+        self.board = np.array([[Node(i, j, 0) for j in range(2 * self.n - 1)] for i in range(2 * self.n - 1)],
+                              dtype=object)
         self.path = []
         self.x = 0
         self.y = 0
@@ -104,15 +121,6 @@ class PathFinding:
         return neighbors
 
     def a_star(self):
-        board_state = tuple(tuple(row) for row in self.board)
-        if board_state in self.path_cache:
-            return self.path_cache[board_state]
-
-        result = self.a_star_algorithm()
-        self.path_cache[board_state] = result
-        return result
-
-    def a_star_algorithm(self):
         start = Node(self.x, self.y, self.value)
         open_queue = [start]
         open_dict = {start: True}
@@ -172,6 +180,8 @@ class Quoridor:
         self.player_walls = 0
         self.enemy_walls = 0
         self.level = 0
+        self.player_goal = 0
+        self.enemy_goal = 0
 
     def get_player_pos(self):
         return self.player_pos.x, self.player_pos.y
@@ -253,11 +263,11 @@ class Quoridor:
 
     def is_game_over(self, board):
         for j in range(self.n):
-            if board[0][j] == 1:
+            if board[self.player_goal][j] == 1:
                 return 1
 
         for j in range(self.n):
-            if board[2 * self.n - 2][j] == 2:
+            if board[self.enemy_goal][j] == 2:
                 return -1
 
         return 0
@@ -267,26 +277,28 @@ class Quoridor:
 
         if move.move == "L":
             for d in directions:
-                new_x = x + 2 * d[0]
-                new_y = y + 2 * d[1]
-                if 0 <= new_x < 2 * self.n - 1 and 0 <= new_y < 2 * self.n - 1 and board[x + d[0]][y + d[1]] != 9:
-                    if board[new_x][new_y] == 0 and new_x == move.x and new_y == move.y:
-                        return True
+                new_x = position.x + 2 * d[0]
+                new_y = position.y + 2 * d[1]
+                if 0 <= new_x < 2 * self.n - 1 and 0 <= new_y < 2 * self.n - 1 and board[position.x + d[0]][
+                    position.y + d[1]] != 9:
+                    if board[new_x][new_y] == 0:
+                        if new_x == move.x and new_y == move.y:
+                            return True
                     else:
                         if 0 <= new_x + 2 * d[0] < 2 * self.n - 1 and 0 <= new_y + 2 * d[1] < 2 * self.n - 1 and \
-                                board[new_x + d[0]][new_y + d[1]] != 9 and new_x + 2 * d[0] == move.x and new_y + 2 * d[1] == move.y:
+                                board[new_x + d[0]][new_y + d[1]] != 9 and new_x + 2 * d[0] == move.x and new_y + 2 * d[
+                            1] == move.y:
                             return True
                         else:
                             for ed in directions:
                                 enemy_x = new_x + 2 * ed[0]
                                 enemy_y = new_y + 2 * ed[1]
 
-                                if 2 * self.n - 1 > enemy_x >= 0 == board[enemy_x][
-                                    enemy_y] and 0 <= enemy_y < 2 * self.n - 1 and \
+                                if 2 * self.n - 1 > enemy_x >= 0 and 0 <= enemy_y < 2 * self.n - 1 and 0 == board[enemy_x][enemy_y] and \
                                         board[new_x + ed[0]][new_y + ed[1]] != 9 and enemy_x == move.x and enemy_y == move.y:
                                     return True
         else:
-            wall_can_be_placed, _, _ = self.wall_can_be_placed(move.x, move.y, move.wx, move.wy)
+            wall_can_be_placed, _, _ = self.wall_can_be_placed(move.x, move.y, move.wx, move.wy, walls)
             return wall_can_be_placed
 
     def wall_can_be_placed(self, x1, y1, x2, y2, walls_left):
@@ -302,9 +314,9 @@ class Quoridor:
             self.path_finding.board[x2][y2].value = 9
             self.path_finding.board[mid_x][mid_y].value = 9
 
-            self.path_finding.set_entity(self.player_pos.x, self.player_pos.y, 0, 1)
+            self.path_finding.set_entity(self.player_pos.x, self.player_pos.y, self.player_goal, 1)
             path1, player_distance = self.path_finding.a_star()
-            self.path_finding.set_entity(self.enemy_pos.x, self.enemy_pos.y, 2 * self.n - 2, 2)
+            self.path_finding.set_entity(self.enemy_pos.x, self.enemy_pos.y, self.enemy_goal, 2)
             path2, enemy_distance = self.path_finding.a_star()
 
             self.path_finding.board[x1][y1].value = 0
@@ -316,7 +328,7 @@ class Quoridor:
             return False, float('inf'), float('inf')
 
     def move(self, x, y, new_x, new_y, player, board):
-        self.path_finding.set_entity(new_x, new_y, 0 if player == 1 else 2 * self.n - 2, player)
+        self.path_finding.set_entity(new_x, new_y, self.player_goal if player == 1 else self.enemy_goal, player)
 
         self.path_finding.board[new_x][new_y].value = player
         self.path_finding.board[x][y].value = 0
@@ -329,41 +341,45 @@ class Quoridor:
         possible_moves = []
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-        self.path_finding.set_entity(enemy.x, enemy.y, 0 if player else 2 * self.n - 2, 1 if player else 2)
+        enemy_goal = self.enemy_goal if player else self.player_goal
+        enemy_id = 2 if player else 1
+        self.path_finding.set_entity(enemy.x, enemy.y, enemy_goal, enemy_id)
         _, enemy_distance = self.path_finding.a_star()
+
         p = 1 if player else 2
 
         for d in directions:
-            new_x = x + 2 * d[0]
-            new_y = y + 2 * d[1]
-            if 0 <= new_x < 2 * self.n - 1 and 0 <= new_y < 2 * self.n - 1 and board[x + d[0]][y + d[1]] != 9:
-                if board[new_x][new_y] == 0:
-                    path, player_distance = self.move(x, y, new_x, new_y, p, board)
+            dx, dy = d
+            mid_x, mid_y = x + dx, y + dy
+            new_x, new_y = x + 2 * dx, y + 2 * dy
 
-                    possible_moves.append(
-                        (Move("L", new_x, new_y, None, None), player_distance if player else enemy_distance,
-                         enemy_distance if player else player_distance))
-                else:
-                    if 0 <= new_x + 2 * d[0] < 2 * self.n - 1 and 0 <= new_y + 2 * d[1] < 2 * self.n - 1 and \
-                            board[new_x + d[0]][new_y + d[1]] != 9:
-                        path, player_distance = self.move(x, y, new_x + 2 * d[0], new_y + 2 * d[1], p, board)
-
-                        possible_moves.append(
-                            (Move("L", new_x, new_y, None, None), player_distance if player else enemy_distance,
-                             enemy_distance if player else player_distance))
-                    else:
-                        for ed in directions:
-                            enemy_x = new_x + 2 * ed[0]
-                            enemy_y = new_y + 2 * ed[1]
-
-                            if 2 * self.n - 1 > enemy_x >= 0 == board[enemy_x][
-                                enemy_y] and 0 <= enemy_y < 2 * self.n - 1 and \
-                                    board[new_x + ed[0]][new_y + ed[1]] != 9:
-                                path, player_distance = self.move(x, y, enemy_x, enemy_y, p, board)
-
-                                possible_moves.append(
-                                    (Move("L", enemy_x, enemy_y, None, None), player_distance, enemy_distance))
-                                break
+            if 0 <= mid_x < 2 * self.n - 1 and 0 <= mid_y < 2 * self.n - 1 and board[mid_x][mid_y] != 9:
+                if 0 <= new_x < 2 * self.n - 1 and 0 <= new_y < 2 * self.n - 1:
+                    if board[new_x][new_y] == 0:
+                        path, player_distance = self.move(x, y, new_x, new_y, p, board)
+                        possible_moves.append((Move("L", new_x, new_y, None, None),
+                                               player_distance if player else enemy_distance,
+                                               enemy_distance if player else player_distance))
+                    elif board[new_x][new_y] in [1, 2]:
+                        jump_x, jump_y = new_x + 2 * dx, new_y + 2 * dy
+                        jump_mid_x, jump_mid_y = new_x + dx, new_y + dy
+                        if 0 <= jump_mid_x < 2 * self.n - 1 and 0 <= jump_mid_y < 2 * self.n - 1 and board[jump_mid_x][
+                            jump_mid_y] != 9:
+                            if 0 <= jump_x < 2 * self.n - 1 and 0 <= jump_y < 2 * self.n - 1:
+                                path, player_distance = self.move(x, y, jump_x, jump_y, p, board)
+                                possible_moves.append((Move("L", jump_x, jump_y, None, None),
+                                                       player_distance if player else enemy_distance,
+                                                       enemy_distance if player else player_distance))
+                        else:
+                            for ed in directions:
+                                ex, ey = new_x + 2 * ed[0], new_y + 2 * ed[1]
+                                between_x, between_y = new_x + ed[0], new_y + ed[1]
+                                if 0 <= ex < 2 * self.n - 1 and 0 <= ey < 2 * self.n - 1 and board[ex][ey] == 0:
+                                    if board[between_x][between_y] != 9:
+                                        path, player_distance = self.move(x, y, ex, ey, p, board)
+                                        possible_moves.append((Move("L", ex, ey, None, None),
+                                                               player_distance, enemy_distance))
+                                        break
 
         if walls_left > 0:
             for i in range(self.n - 1):
@@ -371,7 +387,7 @@ class Quoridor:
                     x = 2 * i + 1
                     y = 2 * j
                     wall_can_be_placed, player_distance, enemy_distance = self.wall_can_be_placed(x, y, x, y + 2,
-                                                                                                  self.player_walls)
+                                                                                                  walls_left)
                     if wall_can_be_placed:
                         possible_moves.append((Move("F", x, y, x, y + 2), player_distance, enemy_distance))
 
@@ -380,7 +396,7 @@ class Quoridor:
                     x = 2 * i
                     y = 2 * j + 1
                     wall_can_be_placed, player_distance, enemy_distance = self.wall_can_be_placed(x, y, x + 2, y,
-                                                                                                  self.player_walls)
+                                                                                                  walls_left)
                     if wall_can_be_placed:
                         possible_moves.append((Move("F", x, y, x + 2, y), player_distance, enemy_distance))
 
@@ -389,66 +405,66 @@ class Quoridor:
     def heuristic(self, minimum, maximum, a=1):
         return -1 * (maximum - a * minimum)
 
-    def min_max(self, board, player, player_pos, enemy_pos, player_walls, enemy_walls, max_depth=5, depth=0,
+    def min_max(self, board, player, player_pos, enemy_pos,
+                player_walls, enemy_walls, max_depth=5, depth=0,
                 alpha=-float('inf'), beta=float('inf')):
+        logging.info(
+f"""
+Board:
+{board}
+Player: {player_pos}
+Enemy: {enemy_pos}
+Player walls: {player_walls}
+enemy walls: {enemy_walls}
+Depth: {depth}
+Alpha: {alpha}
+Beta: {beta}
+""")
         label = self.is_game_over(board)
         if label != 0:
-            self.level += 1
             return (float('inf'), None) if label == 1 else (-float('inf'), None)
 
         if depth >= max_depth:
-            self.level += 1
-            self.path_finding.set_entity(player_pos.x, player_pos.y, 0, 1)
+            self.path_finding.set_entity(player_pos.x, player_pos.y, self.player_goal, 1)
             _, player_distance = self.path_finding.a_star()
-            self.path_finding.set_entity(enemy_pos.x, enemy_pos.y, 2 * self.n - 2, 2)
+            self.path_finding.set_entity(enemy_pos.x, enemy_pos.y, self.enemy_goal, 2)
             _, enemy_distance = self.path_finding.a_star()
-            label = self.heuristic(enemy_distance, player_distance)
-            return label, None
+            score = self.heuristic(enemy_distance, player_distance)
+            return score, None
 
         best_move = None
         best_value = -float('inf') if player else float('inf')
-
         (x, y) = (player_pos.x, player_pos.y) if player else (enemy_pos.x, enemy_pos.y)
 
-        possible_moves = self.get_all_possible_moves(x, y, player, player_pos if player else enemy_pos, board,
-                                                     player_walls if player else enemy_walls)
-
-        for move, player_d, enemy_d in possible_moves:
-            # print(f"Player distance: {player_d}, Enemy distance: {enemy_d} at move: {move}")
-            original_value = board[x][y]
-
-            if move.move == "L":
-                board[x][y] = 0
-                board[move.x][move.y] = 1 if player else 2
-            else:
-                board[move.x][move.y] = 9
-                board[move.wx][move.wy] = 9
-                board[((move.wx + move.x) // 2)][(move.wy + move.y) // 2] = 9
+        moves = self.get_all_possible_moves(x, y, player, enemy_pos if player else player_pos, board, player_walls if player else enemy_walls)
+        logging.info(f"Moves: {moves}")
+        for move, player_d, enemy_d in moves:
+            new_board = board.copy()
+            new_player_pos = Node(player_pos.x, player_pos.y, 1)
+            new_enemy_pos = Node(enemy_pos.x, enemy_pos.y, 2)
 
             if move.move == "L":
+                new_board[x][y] = 0
+                new_board[move.x][move.y] = 1 if player else 2
                 if player:
-                    player_pos.x, player_pos.y = move.x, move.y
+                    new_player_pos.x, new_player_pos.y = move.x, move.y
                 else:
-                    enemy_pos.x, enemy_pos.y = move.x, move.y
+                    new_enemy_pos.x, new_enemy_pos.y = move.x, move.y
+            else:
+                new_board[move.x][move.y] = 9
+                new_board[move.wx][move.wy] = 9
+                new_board[(move.x + move.wx) // 2][(move.y + move.wy) // 2] = 9
 
-            value, _ = self.min_max(board, not player, player_pos, enemy_pos,
+            value, _ = self.min_max(new_board,
+                                    not player,
+                                    new_player_pos,
+                                    new_enemy_pos,
                                     player_walls - 1 if move.move == "F" and player else player_walls,
-                                    enemy_walls - 1 if move.move == "F" and not player else enemy_walls, max_depth,
-                                    depth + 1,alpha=alpha,beta=beta)
-
-            if move.move == "L":
-                board[x][y] = original_value
-                board[move.x][move.y] = 0
-            else:
-                board[move.x][move.y] = 0
-                board[move.wx][move.wy] = 0
-                board[((move.wx + move.x) // 2)][(move.wy + move.y) // 2] = 0
-
-            if move.move == "L":
-                if player:
-                    player_pos.x, player_pos.y = x, y
-                else:
-                    enemy_pos.x, enemy_pos.y = x, y
+                                    enemy_walls - 1 if move.move == "F" and not player else enemy_walls,
+                                    max_depth,
+                                    depth + 1,
+                                    alpha,
+                                    beta)
 
             if player:
                 if value > best_value:
@@ -463,6 +479,13 @@ class Quoridor:
 
             if beta <= alpha:
                 break
+
+        if player and best_value == -float('inf'):
+            best_move = moves[0][0]
+            best_value = moves[0][1]
+        elif not player and best_value == float('inf'):
+            best_move = moves[0][0]
+            best_value = moves[0][2]
 
         return best_value, best_move
 

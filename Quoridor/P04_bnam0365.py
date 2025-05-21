@@ -18,6 +18,22 @@ class QuoridorUI:
               \|__|                                                                
     """
 
+    PLAYER_WINS = r"""
+        ____  __                                  _           
+   / __ \/ /___ ___  _____  _____   _      __(_)___  _____
+  / /_/ / / __ `/ / / / _ \/ ___/  | | /| / / / __ \/ ___/
+ / ____/ / /_/ / /_/ /  __/ /      | |/ |/ / / / / (__  ) 
+/_/   /_/\__,_/\__, /\___/_/       |__/|__/_/_/ /_/____/  
+              /____/                                      
+    """
+    ENEMY_WINS = r"""
+        ____        __              _           
+   / __ )____  / /_   _      __(_)___  _____
+  / __  / __ \/ __/  | | /| / / / __ \/ ___/
+ / /_/ / /_/ / /_    | |/ |/ / / / / (__  ) 
+/_____/\____/\__/    |__/|__/_/_/ /_/____/  
+    """
+
     YOUR_TURN = "Your turn"
     ENEMY_TURN = "Enemy turn"
 
@@ -35,6 +51,8 @@ class QuoridorUI:
         self.player_pos = None
         self.enemy_pos = None
         self.player_ui_pos = None
+        self.player_goal_row = 0
+        self.enemy_goal_row = 0
 
     @staticmethod
     def get_terminal_width():
@@ -58,30 +76,23 @@ class QuoridorUI:
         for p in parts:
             print(self.center_text(p))
 
-
         time.sleep(1.3)
-    
+
     def get_reverse_board(self, board):
         if board is None:
             return None
         return np.flipud(board)
 
-    def move(self, board, move,position, value):
+    def move(self, move, position, value):
         if move.move == "L":
-            board[position.x][position.y] = 0
-            board[move.x][move.y] = value
+            val = self.board[position.x][position.y]
+            self.board[position.x][position.y] = 0
+            self.board[move.x][move.y] = val
 
-            position.x = move.x
-            position.y = move.y
         else:
-            board[move.x][move.y] = 9
-            board[move.wx][move.wy] = 9
-            board[(move.x + move.wx) // 2][(move.y + move.wy) // 2] = 9
-
-            if value == 1:
-                self.enemy_walls -= 1
-            else:
-                self.player_walls -= 1
+            self.board[move.x][move.y] = 9
+            self.board[(move.x + move.wx) // 2][(move.y + move.wy) // 2] = 9
+            self.board[move.wx][move.wy] = 9
 
     def get_player_input(self):
         self.clear_screen()
@@ -92,7 +103,7 @@ class QuoridorUI:
         self.player_name = input().strip()
         while not self.player_name:
             print(f"{self.pending}Name cannot be empty!")
-            print(f"{self.pending}Enter your name: ",end="")
+            print(f"{self.pending}Enter your name: ", end="")
             self.player_name = input().strip()
 
         while True:
@@ -104,19 +115,23 @@ class QuoridorUI:
                 print(f"{self.pending}Please enter an odd number between 3 and 9")
             except ValueError:
                 print(f"{self.pending}Please enter a valid number")
-        
+
         self.board = np.zeros((2 * self.board_size - 1, 2 * self.board_size - 1), dtype=int)
         self.board[0][(2 * self.board_size - 1) // 2] = 1
         self.board[2 * self.board_size - 2][(2 * self.board_size - 1) // 2] = 2
-        self.player_pos = Node(2 * self.board_size - 2, (2 * self.board_size - 1) // 2, 1)
-        self.enemy_pos = Node(0, (2 * self.board_size - 1) // 2, 2)
+        self.player_pos = Node(0, (2 * self.board_size - 1) // 2, 1)
+        self.enemy_pos = Node(2 * self.board_size - 2, (2 * self.board_size - 1) // 2, 2)
         self.game.path_finding = PathFinding(self.board_size)
         self.game.update_board(self.board)
         self.game.n = self.board_size
         self.game.m = self.number_of_walls
         self.game.player_pos = self.player_pos
         self.game.enemy_pos = self.enemy_pos
-        self.player_ui_pos = Node(self.enemy_pos.x,abs(2 * self.board_size - 1 - self.enemy_pos.y),2)
+        self.player_goal_row = 2 * self.board_size - 2
+        self.enemy_goal_row = 0
+
+        self.game.player_goal = self.player_goal_row
+        self.game.enemy_goal = self.enemy_goal_row
 
         while True:
             try:
@@ -133,26 +148,38 @@ class QuoridorUI:
             print(f"{self.pending}Do you want to start Y(es)/N(o)): ", end="")
             start = input().strip().upper()
 
-            if start in ["Y", "YES","VALHALLA"]:
+            if start in ["Y", "YES", "VALHALLA"]:
                 break
             elif start in ["N", "NO", "PESSI"]:
-                board = self.get_reverse_board(self.board)
-                label, move = self.game.min_max(board, True, self.player_pos, self.enemy_pos,
-                                             self.player_walls, self.enemy_walls, max_depth=2)
+                label, move = self.game.min_max(self.board, True, self.player_pos, self.enemy_pos,
+                                                self.player_walls, self.enemy_walls, max_depth=3)
 
-                self.move(board, move, self.player_pos, 1)
-                self.board = self.get_reverse_board(board)
+                self.move(move, self.player_pos, 1)
+                self.player_pos = Node(move.x, move.y, 1)
 
                 break
             else:
                 print(f"{self.pending}Please enter Y/Yes or N/No")
 
     def draw_game_stats(self):
-        player_stats = f"P={self.player_name:<15} Walls left={self.player_walls * '|'}"
-        bot_stats = f"B=BOT{'':<12} Walls left={self.enemy_walls * '|'}"
+        player_stats = f"{self.pending}P={self.player_name:<15} Walls left={self.player_walls * '|'}"
+        bot_stats = f"{self.pending}B=BOT{'':<12} Walls left={self.enemy_walls * '|'}"
 
-        print(self.center_text(player_stats))
-        print(self.center_text(bot_stats))
+        print(player_stats)
+        print(bot_stats)
+
+    def render_winner(self, winner):
+        if winner == 1:
+            text = self.ENEMY_WINS
+        else:
+            text = self.PLAYER_WINS
+
+        parts = text.split("\n")
+
+        for p in parts:
+            print(self.center_text(p))
+
+        print()
 
     def draw_board(self):
         board_width = 4 * self.board_size - 1
@@ -160,7 +187,7 @@ class QuoridorUI:
 
         print(padding + " ", end="")
         for i in range(1, self.board_size + 1):
-            print(f" {i}  ",end="")
+            print(f" {i}  ", end="")
         print()
 
         print(f"{padding}+{'-' * (4 * self.board_size - 1)}+")
@@ -168,7 +195,7 @@ class QuoridorUI:
         for i in range(2 * self.board_size - 1):
             print(f"{" " * ((self.terminal_width - board_width) // 2 - 4)}", end="")
             if i % 2 == 0:
-                print(f"{i // 2 + 1:<2} |",end="")
+                print(f"{i // 2 + 1:<2} |", end="")
             else:
                 print(f"   |", end="")
             for j in range(2 * self.board_size - 1):
@@ -206,14 +233,16 @@ class QuoridorUI:
         self.draw_board()
 
     def run(self):
-        self.display_logo()
+        # self.display_logo()
         self.get_player_input()
-        self.game.player_walls = 5
-        self.game.enemy_walls = 4
+        self.player_name = "Player"
+
         is_running = True
         message = self.YOUR_TURN
+        winner = 0
 
         while is_running:
+            ok = False
             self.render()
             print()
             print(self.pending, end="")
@@ -221,7 +250,7 @@ class QuoridorUI:
             print(self.pending, end="")
             user_input = input("Your move: ").strip()
             parts = user_input.split()
-    
+
             message = self.ENEMY_TURN
             self.render()
             print()
@@ -232,25 +261,68 @@ class QuoridorUI:
                 print(self.center_text("Input cannot be empty."))
                 continue
             parts[0] = parts[0].lower()
-            
+
             if parts[0] == "l" and len(parts) == 3:
                 try:
-                    x = int(parts[1])
-                    y = int(parts[2])
+                    x = (int(parts[1]) - 1) * 2
+                    y = (int(parts[2]) - 1) * 2
                     print(f"{self.pending}You moved to ({x}, {y})")
-                    move = Move("L",x ,y, None, None)
-                    self.move(self.board, move, self.enemy_pos, 2)
+                    move = Move("L", y, x, None, None)
+
+                    if self.game.check_if_valid_move(self.board.copy(), move, self.enemy_pos, 2, self.enemy_walls):
+                        self.move(move, self.enemy_pos, 2)
+                        self.enemy_pos = Node(move.x, move.y, 2)
+                        self.render()
+
+                        winner = self.game.is_game_over(self.board.copy())
+                        ok = True
+
+                        if winner != 0:
+                            is_running = False
+                            ok = False
+                            break
+                    else:
+                        message = "Invalid move. Try again."
 
                 except ValueError:
                     message = "Invalid move format. Use L x y where x and y are numbers."
             elif parts[0] == "w" and len(parts) == 3:
                 l1 = parts[1]
                 l2 = parts[2]
-                if l1.isalpha() and l2.isalpha():
-                    print(f"{self.pending}Placing wall between at {l1} and {l2}")
-
-                else:
+                if (l1.isupper() and l2.isupper()) or (l1.islower() and l2.islower()):
                     message = "Invalid wall format. Use W A B where A and B are letters."
+                elif self.enemy_walls <= 0:
+                    message = "You don't have any walls left."
+                else:
+                    move = None
+                    if l1.isupper() and ord('A') <= ord(l1) <= ord('A') + self.board_size - 1 and ord('a') <= ord(
+                            l2) <= ord('a') + self.board_size - 1:
+                        x_mid = (ord(l1) - ord('A')) * 2 + 1
+                        y_mid = (ord(l2) - ord('a')) * 2 + 1
+                        move = Move("W", x_mid, y_mid - 1, x_mid, y_mid + 1)
+                    elif l2.isupper() and ord('A') <= ord(l2) <= ord('A') + self.board_size - 1 and ord('a') <= ord(
+                            l1) <= ord('a') + self.board_size - 1:
+                        x_mid = (ord(l2) - ord('A')) * 2 + 1
+                        y_mid = (ord(l1) - ord('a')) * 2 + 1
+                        move = Move("W", x_mid - 1, y_mid, x_mid + 1, y_mid)
+                    else:
+                        message = "Invalid wall format. Use W A B where A and B are letters."
+
+                    if move is not None:
+                        self.game.path_finding.update_board(self.board.copy())
+                        self.game.player_pos = self.player_pos
+                        self.game.enemy_pos = self.enemy_pos
+                        if self.game.check_if_valid_move(self.board.copy(), move, self.enemy_pos, 2, self.enemy_walls):
+                            self.move(move, self.enemy_pos, 2)
+                            self.enemy_walls -= 1
+                            self.game.path_finding.board[move.x][move.y] = Node(move.x, move.y, 9)
+                            self.game.path_finding.board[move.wx][move.wy] = Node(move.wx, move.wy, 9)
+                            self.game.path_finding.board[(move.x + move.wx) // 2][(move.y + move.wy) // 2] = Node(
+                                (move.x + move.wx) // 2, (move.y + move.wy) // 2, 9)
+                            self.render()
+                            ok = True
+
+
             elif parts[0] in ["exit", "quit", "q"]:
                 self.render()
                 print("\n")
@@ -260,10 +332,40 @@ class QuoridorUI:
             else:
                 message = "Invalid command. Please try again."
 
+            if ok:
+                self.game.player_pos = self.player_pos
+                self.game.enemy_pos = self.enemy_pos
+                self.game.player_goal = self.player_goal_row
+                self.game.enemy_goal = self.enemy_goal_row
+
+                label, move = self.game.min_max(self.board.copy(), True, self.player_pos, self.enemy_pos,
+                                                self.player_walls, self.enemy_walls, max_depth=3)
+                print(self.player_pos)
+                self.move(move, self.player_pos, 1)
+                if move.move == "L":
+                    self.player_pos = Node(move.x, move.y, 1)
+
+                # print(self.player_pos)
+                # print(self.enemy_pos)
+                # print(move)
+                # print(self.board)
+
+                # time.sleep(10)
+                winner = self.game.is_game_over(self.board.copy())
+
+                if winner != 0:
+                    is_running = False
+                else:
+                    self.render()
+
+        self.render()
+        self.render_winner(winner)
+
 
 def main():
     game = QuoridorUI()
     game.run()
+
 
 if __name__ == "__main__":
     main()
